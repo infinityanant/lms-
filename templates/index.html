@@ -1,0 +1,94 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f8f7f4">
+  <title>Stacks — College Library</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/manage.css' %}">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#" id="brand"><span class="brand-mark">s.</span><span>stacks<span class="brand-dot">.</span></span></a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-view="discover">Discover</button>
+        <button class="nav-link signed-only hidden" data-view="loans">My loans <span class="nav-count" id="loan-count">0</span></button>
+      </nav>
+      <div class="account-area" id="account-area">
+        <button class="text-button" id="login-open">Log in</button>
+        <button class="button button-dark button-small" id="register-open">Join the library <span aria-hidden="true">↗</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span class="live-dot"></span> YOUR CAMPUS, BETWEEN THE COVERS</div>
+          <h1>Find your next<br><span>good read.</span></h1>
+          <p>Explore the college collection, borrow a book, and let curiosity take it from here.</p>
+          <div class="hero-actions"><button class="button button-dark" id="explore">Explore the collection <span>↓</span></button><span class="fine-print">A little reading goes a long way.</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
+          <div class="hero-note note-top">A universe<br>in every book <span>✳</span></div>
+          <div class="hero-book book-back"><span>THE<br>CREATIVE<br>ACT</span><i>Rick Rubin</i></div>
+          <div class="hero-book book-mid"><span>Ways of<br>Seeing</span><i>John Berger</i></div>
+          <div class="hero-book book-front"><span>THE<br>ART OF<br>NOTICING</span><i>Rob Walker</i></div>
+          <div class="hero-note note-bottom"><span>✦</span> Read a little. Think a lot.</div>
+        </div>
+        <div class="hero-bottom"><span>01 — 04</span><div class="hero-line"></div><span>THE CAMPUS COLLECTION</span></div>
+      </section>
+
+      <section class="stats-row" id="stats-row">
+        <div class="stat-intro"><span class="eyebrow">A PLACE TO GET LOST</span><span>Good books find good people.</span></div>
+        <div class="stat"><strong id="stat-books">—</strong><span>books to explore</span></div>
+        <div class="stat"><strong id="stat-copies">—</strong><span>copies available</span></div>
+        <div class="stat stat-note"><span class="spark">✳</span><span>Take your time.<br>Bring it back on time.</span></div>
+      </section>
+
+      <section class="catalog-section" id="catalog-section">
+        <div class="section-heading">
+          <div><span class="eyebrow">THE COLLECTION</span><h2 id="section-title">A shelf for every curiosity.</h2></div>
+          <div class="view-switch"><button class="view-button active" aria-label="Grid view">▦</button><button class="view-button" aria-label="List view">☷</button></div>
+        </div>
+        <div class="catalog-toolbar">
+          <div class="filters" id="filters"><button class="filter-chip active" data-category="">All books <span id="all-count">0</span></button></div>
+          <label class="search-box"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="Search titles, authors, ISBNs..." autocomplete="off"><kbd>⌘ K</kbd></label>
+        </div>
+        <div class="book-grid" id="book-grid"><div class="loading-state"><span class="spinner"></span> Finding your next read...</div></div>
+        <div class="empty-state hidden" id="empty-state"><div class="empty-icon">⌕</div><h3>No books found</h3><p>Try a different title, author, or category.</p><button class="text-button" id="clear-search">Clear search ↗</button></div>
+      </section>
+
+      <section class="loans-section hidden" id="loans-section">
+        <div class="section-heading"><div><span class="eyebrow">YOUR READING LIST</span><h2>Books on your nightstand.</h2></div></div>
+        <div class="loan-summary" id="loan-summary"></div>
+        <div class="loan-list" id="loan-list"></div>
+      </section>
+
+      <section class="librarian-section hidden" id="librarian-section">
+        <div class="librarian-head"><div><span class="eyebrow">LIBRARY DESK</span><h2>Keep the shelves in order.</h2><p>Add books to the collection or update what's already here.</p></div><button class="button button-dark" id="add-book">＋ Add a book</button></div>
+        <div class="manage-list" id="manage-list"></div>
+      </section>
+      <section class="closing-note"><span class="closing-star">✳</span><p>Somewhere, something incredible<br>is waiting to be known.</p><small>— Carl Sagan</small></section>
+    </main>
+    <footer><a class="brand footer-brand" href="#"><span class="brand-mark">s.</span><span>stacks<span class="brand-dot">.</span></span></a><span>Made for curious minds · Campus Library</span><a href="/admin/">Library staff ↗</a></footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop hidden" id="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="modal auth-modal"><button class="modal-close" data-close="auth-modal" aria-label="Close">×</button><div class="modal-kicker">WELCOME TO STACKS</div><h2 id="auth-title">Make room for a good book.</h2><p class="modal-sub" id="auth-sub">Sign in to borrow from the campus collection.</p>
+      <div class="auth-tabs"><button class="auth-tab active" data-auth-mode="login">Log in</button><button class="auth-tab" data-auth-mode="register">Create account</button></div>
+      <form id="auth-form"><label class="field-label hidden" id="name-wrap">Your name<input name="name" autocomplete="name" placeholder="How should we call you?"></label><label class="field-label">Username<input name="username" autocomplete="username" required placeholder="Your campus username"></label><label class="field-label hidden" id="email-wrap">Email address<input name="email" type="email" autocomplete="email" placeholder="you@college.edu"></label><label class="field-label">Password<input name="password" type="password" autocomplete="current-password" required placeholder="At least 8 characters"></label><div class="form-error" id="auth-error"></div><button class="button button-dark button-wide" type="submit" id="auth-submit">Log in <span>↗</span></button></form>
+      <div class="auth-foot">New accounts join as members. Librarian access is managed by staff.</div>
+    </div>
+  </div>
+  <div class="modal-backdrop hidden" id="book-modal" role="dialog" aria-modal="true" aria-labelledby="book-modal-title"><div class="modal book-modal"><button class="modal-close" data-close="book-modal" aria-label="Close">×</button><div class="modal-kicker">LIBRARY CATALOG</div><h2 id="book-modal-title">Add a book</h2><form id="book-form"><input type="hidden" name="book_id"><label class="field-label">Book title<input name="title" required maxlength="200"></label><div class="form-row"><label class="field-label">Author<input name="author" required maxlength="160"></label><label class="field-label">ISBN<input name="isbn" required maxlength="20"></label></div><div class="form-row"><label class="field-label">Category<input name="category" value="General" maxlength="80"></label><label class="field-label">Copies<input name="total_copies" type="number" min="1" value="1" required></label></div><label class="field-label">A short note<textarea name="description" rows="3" placeholder="What makes this book worth picking up?"></textarea></label><div class="form-error" id="book-error"></div><button class="button button-dark button-wide" type="submit">Save book <span>↗</span></button></form></div></div>
+  <div class="modal-backdrop hidden" id="select-modal" role="dialog" aria-modal="true" aria-labelledby="select-title"><div class="modal select-modal"><button class="modal-close" data-close="select-modal" aria-label="Close">×</button><div class="select-book-head"><div class="book-cover" id="select-cover"><span class="cover-mark">✳</span><span class="cover-title" id="select-cover-title"></span><span class="cover-author" id="select-cover-author"></span></div><div><div class="modal-kicker" id="select-category">BOOK SELECTION</div><h2 id="select-title"></h2><p class="select-author" id="select-author"></p></div></div><p class="select-description" id="select-description"></p><div class="selection-details" id="selection-details"></div><div class="form-error" id="select-error"></div><button class="button button-dark button-wide" id="confirm-borrow">Borrow this book <span>↗</span></button><p class="selection-note">14-day loan · Up to 5 books at a time · ₹5 per late day</p></div></div>
+  <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>
