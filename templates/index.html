@@ -18,6 +18,7 @@
       <nav class="main-nav" aria-label="Main navigation">
         <button class="nav-link active" data-view="discover">Discover</button>
         <button class="nav-link signed-only hidden" data-view="loans">My loans <span class="nav-count" id="loan-count">0</span></button>
+        <button class="nav-link superuser-only hidden" data-view="blocked">Blocked users <span class="nav-count" id="blocked-count-nav">0</span></button>
       </nav>
       <div class="account-area" id="account-area">
         <button class="text-button" id="login-open">Log in</button>
@@ -51,6 +52,11 @@
         <div class="stat stat-note"><span class="spark">✳</span><span>Take your time.<br>Bring it back on time.</span></div>
       </section>
 
+      <section class="blocked-page-section hidden" id="blocked-page-section">
+        <div class="blocked-page-heading"><div><span class="eyebrow">SUPERUSER TOOLS</span><h2>Blocked users</h2><p>Members with overdue, unreturned books cannot borrow until they return a book or you restore access.</p></div><span class="blocked-count" id="blocked-count">0</span></div>
+        <div id="blocked-users-list"><p class="blocked-empty">Loading member status...</p></div>
+      </section>
+
       <section class="catalog-section" id="catalog-section">
         <div class="section-heading">
           <div><span class="eyebrow">THE COLLECTION</span><h2 id="section-title">A shelf for every curiosity.</h2></div>
@@ -66,6 +72,7 @@
 
       <section class="loans-section hidden" id="loans-section">
         <div class="section-heading"><div><span class="eyebrow">YOUR READING LIST</span><h2>Books on your nightstand.</h2></div></div>
+        <div class="blocked-notice hidden" id="member-blocked-notice">Borrowing is paused because you have an overdue book. Return it to restore borrowing access.</div>
         <div class="loan-summary" id="loan-summary"></div>
         <div class="loan-list" id="loan-list"></div>
       </section>

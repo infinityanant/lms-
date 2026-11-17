@@ -12,4 +12,8 @@ class LoanAdmin(admin.ModelAdmin):
     list_display = ("book", "user", "borrowed_at", "due_at", "returned_at", "fine_paid")
     list_filter = ("returned_at", "fine_paid")
 
-admin.site.register(Profile)
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin):
+    list_display = ("user", "role", "overdue_unblocked")
+    list_filter = ("role", "overdue_unblocked")
+    search_fields = ("user__username", "user__email")

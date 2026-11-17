@@ -33,6 +33,8 @@ New registrations always get the Member role. The catalog can be browsed without
 ## Borrowing rules
 
 - A member may have up to five active loans and one active copy of a title at a time.
+- A member with an overdue, unreturned loan is blocked from borrowing additional books until the overdue book is returned. Superusers have a dedicated **Blocked users** section in the frontend, including when the list is empty.
+- Superusers can manually restore a blocked member's borrowing access. The override lasts until overdue books are returned; the member is automatically subject to blocking again on future overdue loans.
 - Members can select a title from its catalog card and borrow it. Superusers can check out any catalog title, including titles with no copies available, without the member loan limits.
 - A loan is due 14 days after checkout.
 - A late return accrues ₹5 per calendar day after the due date. The amount is calculated when the loan is viewed or returned.
@@ -53,6 +55,7 @@ All write endpoints use Django session authentication and CSRF protection.
 | GET, PUT, DELETE | `/api/books/<id>/` | Read public; changes librarian |
 | GET, POST | `/api/loans/` | Signed in; POST borrows a book |
 | POST | `/api/loans/<id>/return/` | Borrower or librarian |
+| POST | `/api/users/<id>/unblock/` | Superuser only |
 
 ## Production note
 

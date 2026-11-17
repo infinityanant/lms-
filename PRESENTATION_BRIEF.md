@@ -24,6 +24,8 @@ New registrations always receive the **Member** role. An existing account must b
 - Members select a catalog card and confirm **Borrow this book**. This is a library checkout flow, not a retail purchase. There are no prices, payment processing, or purchase records.
 - A regular member can have at most **5 active loans**, and cannot have two active loans for the same title.
 - A regular member can borrow only if at least one copy is available.
+- Any non-superuser with an overdue, unreturned loan is blocked from new checkouts until the overdue book is returned. Superusers have a dedicated Blocked users frontend section showing blocked accounts and their overdue titles, with an empty state when nobody is blocked.
+- A superuser can manually unblock a member. The borrowing override ends once overdue books are returned; future overdue loans can block the member again.
 - Loan period: **14 days** from checkout.
 - Late fine: **₹5 per calendar day** after the due date. Fine amount is calculated from the due date and current time (or the return timestamp) when loan data is sent by the API. It is not a payment transaction.
 - Members can return their own active loans. Librarians can return any member's loan.
@@ -153,6 +155,7 @@ flowchart TD
     G -->|5 active loans already| X[Return validation error]
     G -->|Already has this title| X
     G -->|No copies available| X
+    G -->|Has overdue active loan| X
     G -->|Valid| H[Create Loan: borrowed_at now, due_at +14 days]
     H --> I[Return loan JSON]
     I --> J[Refresh catalog availability and member loan history]
@@ -163,7 +166,7 @@ The endpoint validates the book exists, enforces member loan limits and availabi
 
 ### Superuser checkout exception
 
-When the signed-in user is a Django superuser, the catalog API sets `can_borrow` true even when available copies are zero. The checkout endpoint also bypasses the regular member's five-loan limit, duplicate active-title rule, and stock-availability check. The recorded loan is still stored normally. Librarians who are not superusers follow the regular checkout rules if they borrow through the API, though the current librarian interface is primarily for catalog management.
+When the signed-in user is a Django superuser, the catalog API sets `can_borrow` true even when available copies are zero. The checkout endpoint also bypasses the regular member's five-loan limit, duplicate active-title rule, stock-availability check, and overdue account block. The recorded loan is still stored normally. Librarians who are not superusers follow the regular checkout rules if they borrow through the API, though the current librarian interface is primarily for catalog management.
 
 ## Data flow: return and late fine
 
@@ -220,6 +223,7 @@ Book fields include title, author, ISBN, category, description, and total copies
 | GET | `/api/loans/` | Get own loan history; librarians get all loans | Signed in |
 | POST | `/api/loans/` | Borrow a book using `book_id` | Signed in |
 | POST | `/api/loans/<id>/return/` | Return loan | Borrower or librarian |
+| POST | `/api/users/<id>/unblock/` | Restore a blocked member's borrowing access | Superuser only |
 
 ## Suggested PowerPoint structure
 
@@ -233,8 +237,9 @@ Book fields include title, author, ISBN, category, description, and total copies
 8. **Borrowing flow and rules:** Use the checkout flowchart; call out 14 days, maximum five active loans, one copy per member/title, stock validation, superuser exception.
 9. **Returns and fines:** Use the return flowchart; show ₹5 per late calendar day and explain that fines are calculated automatically, with no payment processing.
 10. **Librarian workflow:** Add/edit/delete, server-side role checks, ISBN uniqueness, copy validation, preserve books with loan history.
-11. **Security and reliability:** Password authentication via Django, session cookies, CSRF on writes, role/ownership checks, API-side validation.
-12. **Demo/setup and future work:** Local setup with migrations and starter books; possible future work could include payments, reservations, notifications, reports, and a production database. Label these clearly as future work.
+11. **Overdue account blocking:** An overdue active loan blocks the member from borrowing; the superuser sees blocked accounts in the Library Desk until the book is returned.
+12. **Security and reliability:** Password authentication via Django, session cookies, CSRF on writes, role/ownership checks, API-side validation.
+13. **Demo/setup and future work:** Local setup with migrations and starter books; possible future work could include payments, reservations, notifications, reports, and a production database. Label these clearly as future work.
 
 ## Suggested demo sequence
 

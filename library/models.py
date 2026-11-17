@@ -9,6 +9,7 @@ class Profile(models.Model):
     ROLE_CHOICES = [(MEMBER, "Member"), (LIBRARIAN, "Librarian")]
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=12, choices=ROLE_CHOICES, default=MEMBER)
+    overdue_unblocked = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"

@@ -22,10 +22,18 @@ def parse_body(request):
 def librarian(user):
     return user.is_staff or (hasattr(user, "profile") and user.profile.role == Profile.LIBRARIAN)
 
+def user_is_blocked(user):
+    if user.is_superuser or (hasattr(user, "profile") and user.profile.overdue_unblocked):
+        return False
+    return Loan.objects.filter(
+        user=user, returned_at__isnull=True, due_at__lt=timezone.now()
+    ).exists()
+
 def user_data(user):
     role = "librarian" if librarian(user) else "member"
     return {"id": user.id, "username": user.username, "name": user.get_full_name() or user.username,
-            "email": user.email, "role": role, "is_superuser": user.is_superuser}
+            "email": user.email, "role": role, "is_superuser": user.is_superuser,
+            "blocked": user_is_blocked(user)}
 
 def book_data(book, superuser=False):
     available = book.available_copies
@@ -34,9 +42,10 @@ def book_data(book, superuser=False):
             "total_copies": book.total_copies, "available_copies": available,
             "can_borrow": available > 0 or superuser}
 
-def loan_data(loan):
+def loan_data(loan, blocked_user_ids=None):
     return {"id": loan.id, "book": book_data(loan.book), "borrowed_at": loan.borrowed_at.isoformat(),
-            "username": loan.user.username,
+            "username": loan.user.username, "borrower_id": loan.user_id,
+            "user_blocked": loan.user_id in (blocked_user_ids or set()),
             "due_at": loan.due_at.isoformat(),
             "returned_at": loan.returned_at.isoformat() if loan.returned_at else None,
             "fine": loan.fine_amount, "fine_paid": loan.fine_paid,
@@ -161,7 +170,14 @@ def loans(request):
         queryset = Loan.objects.select_related("book", "user").order_by("-borrowed_at")
         if not librarian(request.user):
             queryset = queryset.filter(user=request.user)
-        return Response([loan_data(loan) for loan in queryset])
+        blocked_user_ids = set(Loan.objects.filter(
+            returned_at__isnull=True, due_at__lt=timezone.now()
+        ).exclude(user__is_superuser=True).exclude(
+            user__profile__overdue_unblocked=True
+        ).values_list("user_id", flat=True))
+        return Response([loan_data(loan, blocked_user_ids) for loan in queryset])
+    if user_is_blocked(request.user):
+        return Response({"detail": "Borrowing is blocked while you have an overdue book. Return it to borrow again."}, status=403)
     data = parse_body(request)
     if data is None:
         return Response({"detail": "Invalid JSON."}, status=400)
@@ -196,4 +212,27 @@ def return_book(request, loan_id):
         return Response({"detail": "This book has already been returned."}, status=400)
     loan.returned_at = timezone.now()
     loan.save(update_fields=["returned_at"])
+    if hasattr(loan.user, "profile") and loan.user.profile.overdue_unblocked and not Loan.objects.filter(
+        user=loan.user, returned_at__isnull=True, due_at__lt=timezone.now()
+    ).exists():
+        loan.user.profile.overdue_unblocked = False
+        loan.user.profile.save(update_fields=["overdue_unblocked"])
     return Response(loan_data(loan))
+
+@api_view(["POST"])
+def unblock_user(request, user_id):
+    if not request.user.is_superuser:
+        return Response({"detail": "Only a superuser can unblock borrowing."}, status=403)
+    try:
+        user = User.objects.select_related("profile").get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "User not found."}, status=404)
+    if user.is_superuser:
+        return Response({"detail": "Superuser accounts cannot be blocked."}, status=400)
+    overdue_exists = Loan.objects.filter(user=user, returned_at__isnull=True, due_at__lt=timezone.now()).exists()
+    if not overdue_exists:
+        return Response({"detail": "This user has no overdue active loans."}, status=400)
+    profile, _ = Profile.objects.get_or_create(user=user)
+    profile.overdue_unblocked = True
+    profile.save(update_fields=["overdue_unblocked"])
+    return Response({"user": user_data(user), "detail": "Borrowing access restored until overdue books are returned."})

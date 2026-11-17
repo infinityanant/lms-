@@ -24,12 +24,14 @@
     const area = $('#account-area');
     if (!state.user) {
       area.innerHTML = '<button class="text-button" id="login-open">Log in</button><button class="button button-dark button-small" id="register-open">Join the library <span aria-hidden="true">↗</span></button>';
-      $$('.signed-only').forEach(el => el.classList.add('hidden')); $('#librarian-section').classList.add('hidden');
+      $$('.signed-only, .superuser-only').forEach(el => el.classList.add('hidden')); $('#librarian-section').classList.add('hidden'); $('#blocked-page-section').classList.add('hidden');
     } else {
       const first = esc((state.user.name || state.user.username).split(' ')[0]);
       area.innerHTML = `<span class="user-greeting">Hi, ${first}</span><button class="text-button" id="logout-button">Log out</button>`;
       $$('.signed-only').forEach(el => el.classList.remove('hidden'));
       $('#librarian-section').classList.toggle('hidden', state.user.role !== 'librarian');
+      $$('.superuser-only').forEach(el => el.classList.toggle('hidden', !state.user.is_superuser));
+      $('#blocked-page-section').classList.toggle('hidden', !state.user.is_superuser);
     }
   }
   async function loadBooks() {
@@ -58,7 +60,7 @@
         <div class="book-cover ${tone(book.id)}"><span class="cover-mark">✳</span><span class="cover-title">${esc(book.title)}</span><span class="cover-author">${esc(book.author)}</span></div></div>
       <div class="book-meta"><div class="book-meta-main"><h3 class="book-title" title="${esc(book.title)}">${esc(book.title)}</h3><div class="book-author">${esc(book.author)}</div></div>${state.user?.role !== 'librarian' ? `<div class="book-copy-count">${book.available_copies ? '↗' : '·'}</div>` : ''}</div>
       <div class="book-category">${esc(book.category || 'General')}</div>
-      ${state.user?.is_superuser || state.user?.role === 'member' ? `<div class="book-card-actions"><button class="select-book-button" data-select="${book.id}">${state.user ? 'Select book' : 'Sign in to borrow'} <span>↗</span></button></div>` : ''}
+      ${state.user?.is_superuser || state.user?.role === 'member' ? `<div class="book-card-actions"><button class="select-book-button ${state.user?.blocked ? 'is-blocked' : ''}" data-select="${book.id}">${state.user?.blocked ? 'Borrowing blocked' : (state.user ? 'Select book' : 'Sign in to borrow')} <span>↗</span></button></div>` : ''}
       ${state.user?.role === 'librarian' ? `<div class="card-manage-actions"><button data-card-edit="${book.id}">Edit</button><button data-card-delete="${book.id}">Delete</button></div>` : ''}
     </article>`).join('');
     // Cards remain browsable to everyone; clicking a cover offers the relevant action.
@@ -71,13 +73,17 @@
   }
   async function loadLoans() {
     if (!state.user) return;
-    state.loans = await api('loans/'); renderLoans();
+    state.loans = await api('loans/');
+    state.user.blocked = state.loans.some(loan => loan.borrower_id === state.user.id && loan.user_blocked && !loan.returned_at);
+    renderLoans(); if (state.books.length) renderBooks();
     $('#loan-count').textContent = state.loans.filter(l => !l.returned_at).length;
   }
   function renderLoans() {
     const active = state.loans.filter(l => !l.returned_at);
     const fines = state.loans.reduce((sum, l) => sum + l.fine, 0);
+    $('#member-blocked-notice').classList.toggle('hidden', !state.user?.blocked);
     $('#loan-summary').innerHTML = `<div class="summary-card"><strong>${active.length}<span style="font-size:11px"> / 5</span></strong><span>books on loan</span></div><div class="summary-card"><strong>₹${fines}</strong><span>current late fines</span></div><div class="summary-card"><strong>${state.loans.length - active.length}</strong><span>books returned</span></div>`;
+    renderBlockedMembers();
     const list = $('#loan-list');
     if (!state.loans.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">✳</div><h3>Your next read is out there.</h3><p>Borrow a book from the collection to see it here.</p></div>'; return; }
     list.innerHTML = state.loans.map(loan => {
@@ -89,6 +95,19 @@
         <div>${loan.fine ? `<span class="status-pill overdue">₹${loan.fine} fine · ₹5/day</span>` : `<span class="status-pill ${loan.is_overdue ? 'overdue' : ''}">${status}</span>`}</div>
         <div>${activeLoan ? `<button class="return-button" data-return="${loan.id}">Return book ↗</button>` : `<span class="book-copy-count">${status}</span>`}</div></div>`;
     }).join('');
+  }
+  function renderBlockedMembers() {
+    const panel = $('#blocked-page-section');
+    if (!state.user?.is_superuser) { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+    const grouped = new Map();
+    state.loans.filter(loan => loan.user_blocked && !loan.returned_at).forEach(loan => {
+      if (!grouped.has(loan.borrower_id)) grouped.set(loan.borrower_id, { id: loan.borrower_id, username: loan.username, loans: [] });
+      grouped.get(loan.borrower_id).loans.push(loan);
+    });
+    $('#blocked-count').textContent = grouped.size;
+    $('#blocked-count-nav').textContent = grouped.size;
+    $('#blocked-users-list').innerHTML = grouped.size ? [...grouped.values()].map(member => `<div class="blocked-user-row"><div><strong>${esc(member.username)}</strong><span>${member.loans.length} overdue ${member.loans.length === 1 ? 'book' : 'books'} · borrowing blocked</span><button class="unblock-button" data-unblock="${member.id}">Unblock borrowing</button></div><div>${member.loans.map(loan => `<span class="blocked-book">${esc(loan.book.title)} · due ${new Date(loan.due_at).toLocaleDateString()} · ₹${loan.fine}</span>`).join('')}</div></div>`).join('') : '<p class="blocked-empty">No members are blocked for overdue books.</p>';
   }
   function renderManage() {
     $('#manage-list').innerHTML = state.books.length ? state.books.map(b => `<div class="manage-row"><div><strong>${esc(b.title)}</strong><br><span>${esc(b.author)} · ${esc(b.isbn)}</span></div><span>${esc(b.category)}</span><span>${b.available_copies}/${b.total_copies} available</span><div class="manage-actions"><button data-edit="${b.id}">Edit</button><button data-delete="${b.id}">Delete</button></div></div>`).join('') : '<div class="empty-state"><h3>The shelves are waiting.</h3><p>Add the first book to your collection.</p></div>';
@@ -115,12 +134,12 @@
     $('#select-cover-title').textContent = book.title;
     $('#select-cover-author').textContent = book.author;
     $('#select-cover').className = `book-cover ${tone(book.id)}`;
-    const canBorrow = book.can_borrow ?? book.available_copies > 0;
-    $('#selection-details').textContent = book.available_copies > 0 ? `${book.available_copies} ${book.available_copies === 1 ? 'copy' : 'copies'} currently available` : (state.user?.is_superuser ? 'Superuser access: checkout is available even when all copies are on loan.' : 'All copies are currently on loan.');
+    const canBorrow = (book.can_borrow ?? book.available_copies > 0) && !state.user?.blocked;
+    $('#selection-details').textContent = state.user?.blocked ? 'Borrowing is paused because your account has an overdue book. Return it to restore access.' : (book.available_copies > 0 ? `${book.available_copies} ${book.available_copies === 1 ? 'copy' : 'copies'} currently available` : (state.user?.is_superuser ? 'Superuser access: checkout is available even when all copies are on loan.' : 'All copies are currently on loan.'));
     $('#select-error').textContent = '';
     const button = $('#confirm-borrow');
     button.disabled = !state.user || !canBorrow;
-    button.innerHTML = !state.user ? 'Sign in to borrow <span>↗</span>' : (!canBorrow ? 'Currently unavailable' : 'Borrow this book <span>↗</span>');
+    button.innerHTML = !state.user ? 'Sign in to borrow <span>↗</span>' : (state.user.blocked ? 'Borrowing blocked' : (!canBorrow ? 'Currently unavailable' : 'Borrow this book <span>↗</span>'));
     button.dataset.bookId = book.id;
     if (!state.user) button.onclick = () => { setModal('select-modal', false); openAuth('login'); };
     else button.onclick = async () => {
@@ -132,11 +151,15 @@
   }
   function showView(view) {
     $$('.nav-link').forEach(link => link.classList.toggle('active', link.dataset.view === view));
-    const isLoans = view === 'loans' && !!state.user; $('#loans-section').classList.toggle('hidden', !isLoans);
-    $('#catalog-section').classList.toggle('hidden', isLoans);
-    $('#hero').classList.toggle('hidden', isLoans); $('#stats-row').classList.toggle('hidden', isLoans);
-    if (isLoans) { $('#section-title').textContent = 'A shelf for every curiosity.'; $('#loans-section').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-    else { $('#loans-section').classList.add('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    const isLoans = view === 'loans' && !!state.user;
+    const isBlockedView = view === 'blocked' && !!state.user?.is_superuser;
+    $('#loans-section').classList.toggle('hidden', !isLoans);
+    $('#blocked-page-section').classList.toggle('hidden', !state.user?.is_superuser || isLoans);
+    $('#catalog-section').classList.toggle('hidden', isLoans || isBlockedView);
+    $('#hero').classList.toggle('hidden', isLoans || isBlockedView); $('#stats-row').classList.toggle('hidden', isLoans || isBlockedView);
+    if (isLoans) $('#loans-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else if (isBlockedView) $('#blocked-page-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   $('#account-area').addEventListener('click', async e => {
     if (e.target.closest('#login-open')) openAuth('login');
@@ -158,6 +181,12 @@
     const button = e.target.closest('[data-borrow]'); if (button) borrow(button.dataset.borrow);
   });
   $('#loan-list').addEventListener('click', async e => { const button = e.target.closest('[data-return]'); if (!button) return; try { const result = await api(`loans/${button.dataset.return}/return/`, { method: 'POST', body: '{}' }); toast(result.fine ? `Returned. Late fine: ₹${result.fine} (₹5 per day).` : 'Book returned. Thank you!'); await Promise.all([loadLoans(), loadBooks()]); } catch (err) { toast(err.message, true); } });
+  $('#blocked-users-list').addEventListener('click', async e => {
+    const button = e.target.closest('[data-unblock]'); if (!button) return;
+    button.disabled = true;
+    try { await api(`users/${button.dataset.unblock}/unblock/`, { method: 'POST', body: '{}' }); toast('Borrowing access restored for this member.'); await loadLoans(); }
+    catch (err) { toast(err.message, true); button.disabled = false; }
+  });
   $$('.auth-tab').forEach(tab => tab.addEventListener('click', () => openAuth(tab.dataset.authMode)));
   $$('.modal-close').forEach(btn => btn.addEventListener('click', () => setModal(btn.dataset.close, false)));
   $$('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', e => { if (e.target === backdrop) setModal(backdrop.id, false); }));
